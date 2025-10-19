@@ -12,44 +12,38 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Install Buildozer and dependencies
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '11'
+    
+    - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y python3-pip build-essential git openjdk-11-jdk unzip \
-            libffi-dev libssl-dev zlib1g-dev libjpeg-dev libfreetype6-dev liblcms2-dev
+        sudo apt-get install -y python3-pip build-essential git unzip \
+            libffi-dev libssl-dev zlib1g-dev libjpeg-dev libfreetype6-dev liblcms2-dev \
+            libncurses5-dev libtinfo5 autoconf automake libtool pkg-config
         python3 -m pip install --upgrade pip setuptools wheel cython buildozer pillow numpy kivy plyer
     
-    - name: Install Android SDK
+    - name: Install Android SDK using script
       run: |
-        mkdir -p $HOME/android-sdk
-        cd $HOME/android-sdk
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdtools.zip
-        unzip -q cmdtools.zip
-        rm cmdtools.zip
-        
-        # Create the proper directory structure
-        mkdir -p cmdline-tools/latest
-        mv cmdline-tools/* cmdline-tools/latest/ || true
+        wget -q https://raw.githubusercontent.com/kivy/kivy/master/tools/ci/install_android_sdk.sh
+        chmod +x install_android_sdk.sh
+        ./install_android_sdk.sh
         
         export ANDROID_HOME=$HOME/android-sdk
         export ANDROID_SDK_ROOT=$ANDROID_HOME
+        export ANDROID_NDK_HOME=$ANDROID_HOME/ndk-bundle
         export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
-        
-        # Accept licenses first
-        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-        
-        # Install Android packages
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools" "ndk;25.1.8937393"
-    
-    - name: Set up environment variables
-      run: |
-        echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
-        echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
-        echo "PATH=$HOME/android-sdk/cmdline-tools/latest/bin:$HOME/android-sdk/platform-tools:$PATH" >> $GITHUB_ENV
-        echo "BUILDOZER_ALLOW_ROOT=1" >> $GITHUB_ENV
+        echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+        echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+        echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME" >> $GITHUB_ENV
+        echo "PATH=$PATH" >> $GITHUB_ENV
     
     - name: Build APK
       run: |
+        export BUILDOZER_ALLOW_ROOT=1
         buildozer -v android debug
     
     - name: Upload APK
